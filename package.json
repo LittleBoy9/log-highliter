@@ -1,22 +1,41 @@
 {
-  "name": "log-highlighter",
+  "name": "log-highlighter-vscode",
   "displayName": "Log Highlighter",
-  "description": "Highlight and manage console.log, console.warn, console.error and other console statements",
+  "description": "Highlight and manage console.log, console.warn, console.error and other console statements. Supports custom loggers like NestJS, Winston, Pino with one-click removal.",
   "version": "0.0.1",
-  "publisher": "sounakdas",
+  "publisher": "littleboy",
+  "author": {
+    "name": "Sounak Das"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sounakdas/log-highlighter"
+  },
+  "bugs": {
+    "url": "https://github.com/sounakdas/log-highlighter/issues"
+  },
+  "homepage": "https://github.com/sounakdas/log-highlighter#readme",
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "Other",
-    "Visualization"
+    "Visualization",
+    "Linters"
   ],
   "keywords": [
     "console",
     "log",
     "highlight",
     "debug",
-    "cleanup"
+    "cleanup",
+    "remove",
+    "nestjs",
+    "winston",
+    "pino",
+    "logger"
   ],
   "activationEvents": [
     "onLanguage:javascript",
@@ -28,6 +47,43 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Log Highlighter",
+      "properties": {
+        "logHighlighter.enabledPresets": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string",
+            "enum": ["nestjs", "winston", "pino", "bunyan", "log4js"]
+          },
+          "description": "Enable built-in presets for common logging frameworks"
+        },
+        "logHighlighter.customPatterns": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Display name for this pattern"
+              },
+              "pattern": {
+                "type": "string",
+                "description": "Text to match (e.g., 'Logger.log', 'this.logger.warn')"
+              },
+              "color": {
+                "type": "string",
+                "description": "Hex color for highlighting (e.g., '#22c55e')"
+              }
+            },
+            "required": ["name", "pattern", "color"]
+          },
+          "description": "Custom logging patterns to highlight"
+        }
+      }
+    },
     "commands": [
       {
         "command": "log-highlighter.showMenu",
@@ -65,6 +121,14 @@
       {
         "command": "log-highlighter.clearHighlights",
         "title": "Log Highlighter: Clear All Highlights"
+      },
+      {
+        "command": "log-highlighter.managePresets",
+        "title": "Log Highlighter: Manage Framework Presets"
+      },
+      {
+        "command": "log-highlighter.highlightCustom",
+        "title": "Log Highlighter: Highlight Custom Patterns"
       }
     ],
     "menus": {

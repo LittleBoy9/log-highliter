@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import {
   ConsoleMethod,
   ConsoleStatement,
+  CustomStatement,
   CONSOLE_METHODS,
   DECORATION_CONFIGS,
 } from './types.js';
@@ -10,6 +11,10 @@ export class DecorationManager {
   private decorationTypes: Map<ConsoleMethod, vscode.TextEditorDecorationType>;
   private activeDecorations: Map<ConsoleMethod, vscode.Range[]>;
   private currentStatements: ConsoleStatement[] = [];
+
+  private customDecorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map();
+  private customActiveDecorations: Map<string, vscode.Range[]> = new Map();
+  private currentCustomStatements: CustomStatement[] = [];
 
   constructor() {
     this.decorationTypes = new Map();
@@ -68,10 +73,15 @@ export class DecorationManager {
       }
     }
     this.currentStatements = [];
+    this.clearCustomDecorations(editor);
   }
 
   getCurrentStatements(): ConsoleStatement[] {
     return this.currentStatements;
+  }
+
+  getCurrentCustomStatements(): CustomStatement[] {
+    return this.currentCustomStatements;
   }
 
   hasActiveDecorations(): boolean {
@@ -80,7 +90,70 @@ export class DecorationManager {
         return true;
       }
     }
+    for (const ranges of this.customActiveDecorations.values()) {
+      if (ranges.length > 0) {
+        return true;
+      }
+    }
     return false;
+  }
+
+  applyCustomDecorations(
+    editor: vscode.TextEditor,
+    statements: CustomStatement[]
+  ): void {
+    this.clearCustomDecorations(editor);
+    this.currentCustomStatements = statements;
+
+    const groupedByColor = new Map<string, CustomStatement[]>();
+    for (const statement of statements) {
+      const key = statement.color;
+      if (!groupedByColor.has(key)) {
+        groupedByColor.set(key, []);
+      }
+      groupedByColor.get(key)!.push(statement);
+    }
+
+    for (const [color, stmts] of groupedByColor) {
+      let decorationType = this.customDecorationTypes.get(color);
+      if (!decorationType) {
+        decorationType = vscode.window.createTextEditorDecorationType({
+          backgroundColor: this.hexToRgba(color, 0.2),
+          borderWidth: '0 0 0 3px',
+          borderStyle: 'solid',
+          borderColor: color,
+          overviewRulerColor: color,
+          overviewRulerLane: vscode.OverviewRulerLane.Right,
+          isWholeLine: true,
+        });
+        this.customDecorationTypes.set(color, decorationType);
+      }
+
+      const ranges = stmts.map((s) =>
+        this.getFullLineRange(editor.document, s.range)
+      );
+      this.customActiveDecorations.set(color, ranges);
+      editor.setDecorations(decorationType, ranges);
+    }
+  }
+
+  clearCustomDecorations(editor: vscode.TextEditor): void {
+    for (const [color, decorationType] of this.customDecorationTypes) {
+      editor.setDecorations(decorationType, []);
+      this.customActiveDecorations.set(color, []);
+    }
+    this.currentCustomStatements = [];
+  }
+
+  private hexToRgba(hex: string, alpha: number): string {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!result) {
+      return `rgba(128, 128, 128, ${alpha})`;
+    }
+    const r = parseInt(result[1], 16);
+    const g = parseInt(result[2], 16);
+    const b = parseInt(result[3], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
   private getFullLineRange(
@@ -102,5 +175,11 @@ export class DecorationManager {
     }
     this.decorationTypes.clear();
     this.activeDecorations.clear();
+
+    for (const decorationType of this.customDecorationTypes.values()) {
+      decorationType.dispose();
+    }
+    this.customDecorationTypes.clear();
+    this.customActiveDecorations.clear();
   }
 }

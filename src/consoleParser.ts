@@ -1,5 +1,11 @@
 import * as vscode from 'vscode';
-import { ConsoleMethod, ConsoleStatement, CONSOLE_METHODS } from './types.js';
+import {
+  ConsoleMethod,
+  ConsoleStatement,
+  CustomStatement,
+  CustomPattern,
+  CONSOLE_METHODS,
+} from './types.js';
 
 export function parseConsoleStatements(
   document: vscode.TextDocument,
@@ -165,4 +171,48 @@ function mergeOverlappingRanges(ranges: vscode.Range[]): vscode.Range[] {
   }
 
   return merged;
+}
+
+export function parseCustomStatements(
+  document: vscode.TextDocument,
+  patterns: CustomPattern[]
+): CustomStatement[] {
+  const text = document.getText();
+  const statements: CustomStatement[] = [];
+
+  for (const customPattern of patterns) {
+    const escapedPattern = escapeRegex(customPattern.pattern);
+    const regex = new RegExp(`${escapedPattern}\\s*\\(`, 'g');
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(text)) !== null) {
+      const startOffset = match.index;
+      const openParenOffset = match.index + match[0].length - 1;
+
+      const endOffset = findMatchingCloseParen(text, openParenOffset);
+      if (endOffset === -1) {
+        continue;
+      }
+
+      const startPos = document.positionAt(startOffset);
+      const endPos = document.positionAt(endOffset + 1);
+      const range = new vscode.Range(startPos, endPos);
+      const fullText = text.substring(startOffset, endOffset + 1);
+
+      statements.push({
+        patternId: customPattern.pattern,
+        name: customPattern.name,
+        color: customPattern.color,
+        range,
+        fullText,
+      });
+    }
+  }
+
+  statements.sort((a, b) => a.range.start.compareTo(b.range.start));
+  return statements;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
