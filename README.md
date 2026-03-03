@@ -1,20 +1,55 @@
-# Log Highlighter
+<p align="center">
+  <img src="https://img.shields.io/badge/VS%20Code-Extension-007ACC?style=for-the-badge&logo=visual-studio-code&logoColor=white" alt="VS Code Extension">
+  <img src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" alt="MIT License">
+  <img src="https://img.shields.io/badge/Version-0.0.2-6366f1?style=for-the-badge" alt="Version">
+</p>
 
-A VS Code extension to highlight, manage, and remove console statements and custom logger patterns in your code.
+<h1 align="center">Log Highlighter for VS Code</h1>
 
-![VS Code Version](https://img.shields.io/badge/VS%20Code-1.85%2B-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+<p align="center">
+  <strong>Find, highlight, and clean up console statements in seconds.</strong><br>
+  Color-coded highlighting for <code>console.log</code>, <code>console.warn</code>, <code>console.error</code>, and more.<br>
+  One-click removal. Framework presets. Custom patterns.
+</p>
+
+<p align="center">
+  <a href="vscode:extension/littleboy.log-highlighter-vscode">Install in VS Code</a> &nbsp;&bull;&nbsp;
+  <a href="https://github.com/LittleBoy9/log-highliter/issues">Report Issue</a> &nbsp;&bull;&nbsp;
+  <a href="https://github.com/LittleBoy9/log-highliter">GitHub</a>
+</p>
+
+---
 
 ## Features
 
-- **Highlight Console Statements** - Instantly highlight `console.log`, `console.warn`, `console.error`, `console.info`, and `console.debug` with distinct colors
-- **Custom Logger Support** - Add your own patterns for custom loggers (NestJS, Winston, Pino, etc.)
-- **Framework Presets** - Built-in presets for popular logging frameworks
-- **Multi-line Support** - Correctly handles multi-line console statements with nested parentheses
-- **One-Click Removal** - Remove all highlighted statements from your code with a single click
-- **Editor Toolbar Button** - Quick access from the editor title bar
+| | Feature | Description |
+|:-:|---------|-------------|
+| 🎨 | **Color-Coded Highlights** | Each console method gets its own distinct color |
+| 🗑️ | **One-Click Removal** | Remove all highlighted log statements with a single click |
+| 📦 | **Framework Presets** | Built-in support for NestJS, Winston, Pino, Bunyan, Log4js |
+| 🔍 | **Smart Parsing** | Handles multi-line statements, nested parens, template literals |
+| ⚙️ | **Custom Patterns** | Define your own logger patterns with custom colors |
+| 🌐 | **Multi-Language** | JS, TS, JSX, TSX, Vue, and Svelte |
+
+---
+
+## Quick Start
+
+1. Open any JavaScript/TypeScript file
+2. Click the **filter icon** in the editor title bar (top right)
+3. Select what you want to highlight from the dropdown
+
+---
 
 ## Installation
+
+### VS Code Marketplace
+
+```
+code --install-extension littleboy.log-highlighter-vscode
+```
+
+Or search **"Log Highlighter"** in the VS Code Extensions sidebar.
 
 ### From Source
 
@@ -24,75 +59,65 @@ cd log-highlighter
 npm install
 npm run build
 vsce package
-code --install-extension log-highlighter-0.0.2.vsix
+code --install-extension log-highlighter-*.vsix
 ```
 
-## Usage
-
-### Quick Start
-
-1. Open any JavaScript/TypeScript file
-2. Click the **filter icon** in the editor title bar (top right)
-3. Select what you want to highlight from the dropdown menu
-
-### Menu Options
-
-| Option | Description |
-|--------|-------------|
-| **Highlight All Console** | Highlights all console.log/warn/error/info/debug |
-| **console.log** | Highlight only console.log statements |
-| **console.warn** | Highlight only console.warn statements |
-| **console.error** | Highlight only console.error statements |
-| **console.info** | Highlight only console.info statements |
-| **console.debug** | Highlight only console.debug statements |
-| **Highlight All Custom** | Highlight all enabled presets and custom patterns |
-| **Manage Presets** | Enable/disable framework presets |
-| **Remove Highlighted** | Delete highlighted statements from code |
-| **Clear Highlights** | Remove highlights without deleting code |
+---
 
 ## Color Scheme
 
 ### Console Methods
 
-| Method | Color |
-|--------|-------|
-| `console.log` | Blue |
-| `console.warn` | Yellow |
-| `console.error` | Red |
-| `console.info` | Cyan |
-| `console.debug` | Magenta |
+| Method | Color | Preview |
+|--------|-------|---------|
+| `console.log` | Blue | ![](https://img.shields.io/badge/-console.log-3b82f6?style=flat-square) |
+| `console.warn` | Yellow | ![](https://img.shields.io/badge/-console.warn-eab308?style=flat-square) |
+| `console.error` | Red | ![](https://img.shields.io/badge/-console.error-ef4444?style=flat-square) |
+| `console.info` | Cyan | ![](https://img.shields.io/badge/-console.info-06b6d4?style=flat-square) |
+| `console.debug` | Magenta | ![](https://img.shields.io/badge/-console.debug-a855f7?style=flat-square) |
 
 ### Framework Presets
 
-| Framework | Color | Patterns |
-|-----------|-------|----------|
-| NestJS Logger | Red (#e0234e) | `this.logger.log`, `Logger.log`, etc. |
-| Winston | Green (#22c55e) | `logger.info`, `logger.error`, etc. |
-| Pino | Teal (#10b981) | `logger.info`, `logger.trace`, etc. |
-| Bunyan | Orange (#f59e0b) | `log.info`, `log.error`, etc. |
-| Log4js | Purple (#8b5cf6) | `logger.info`, `logger.debug`, etc. |
+| Framework | Color | Example Patterns |
+|-----------|-------|------------------|
+| **NestJS** | ![](https://img.shields.io/badge/-●-e0234e?style=flat-square) Red | `this.logger.log`, `Logger.error`, `this.logger.verbose` |
+| **Winston** | ![](https://img.shields.io/badge/-●-22c55e?style=flat-square) Green | `logger.info`, `logger.error`, `logger.silly` |
+| **Pino** | ![](https://img.shields.io/badge/-●-10b981?style=flat-square) Teal | `logger.info`, `logger.trace`, `logger.fatal` |
+| **Bunyan** | ![](https://img.shields.io/badge/-●-f59e0b?style=flat-square) Orange | `log.info`, `log.error`, `log.fatal` |
+| **Log4js** | ![](https://img.shields.io/badge/-●-8b5cf6?style=flat-square) Purple | `logger.info`, `logger.debug`, `logger.fatal` |
+
+---
+
+## Menu Options
+
+| Option | Description |
+|--------|-------------|
+| **Highlight All Console** | Highlights all console.log/warn/error/info/debug |
+| **console.log / warn / error / info / debug** | Highlight a specific method only |
+| **Highlight All Custom** | Highlight all enabled presets and custom patterns |
+| **Manage Presets** | Enable/disable framework presets |
+| **Remove Highlighted** | Delete highlighted statements from code |
+| **Clear Highlights** | Remove highlights without deleting code |
+
+---
 
 ## Configuration
 
 ### Enable Framework Presets
 
-1. Click the filter icon in editor title bar
-2. Select "Manage Presets"
-3. Click on a preset to enable/disable it
+Add to your `settings.json`:
 
-Or add to your `settings.json`:
-
-```json
+```jsonc
 {
-  "logHighlighter.enabledPresets": ["nestjs", "winston"]
+  "logHighlighter.enabledPresets": ["nestjs", "winston", "pino"]
 }
 ```
 
+Or use the menu: **Filter icon → Manage Presets** to toggle them interactively.
+
 ### Add Custom Patterns
 
-Add custom patterns in your `settings.json`:
-
-```json
+```jsonc
 {
   "logHighlighter.customPatterns": [
     {
@@ -110,21 +135,27 @@ Add custom patterns in your `settings.json`:
 ```
 
 Each custom pattern requires:
-- `name` - Display name shown in the menu
-- `pattern` - Text to match (e.g., `myLogger.info`, `customLog`)
-- `color` - Hex color for highlighting (e.g., `#ff6b6b`)
+- **`name`** — Display name shown in the menu
+- **`pattern`** — Text to match (e.g., `myLogger.info`)
+- **`color`** — Hex color for highlighting (e.g., `#ff6b6b`)
+
+---
 
 ## Supported File Types
 
-- JavaScript (`.js`, `.mjs`, `.cjs`)
-- TypeScript (`.ts`, `.mts`, `.cts`)
-- React (`.jsx`, `.tsx`)
-- Vue (`.vue`)
-- Svelte (`.svelte`)
+| Language | Extensions |
+|----------|-----------|
+| JavaScript | `.js`, `.mjs`, `.cjs` |
+| TypeScript | `.ts`, `.mts`, `.cts` |
+| React | `.jsx`, `.tsx` |
+| Vue | `.vue` |
+| Svelte | `.svelte` |
+
+---
 
 ## Commands
 
-All commands are available via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+All commands available via **Command Palette** (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
 | Command | Description |
 |---------|-------------|
@@ -140,38 +171,55 @@ All commands are available via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 | `Log Highlighter: Remove All Highlighted Statements` | Delete highlighted code |
 | `Log Highlighter: Clear All Highlights` | Remove highlights only |
 
+---
+
 ## Edge Cases Handled
 
-The extension correctly handles:
+<details>
+<summary><strong>Multi-line statements</strong></summary>
 
-- **Multi-line statements**
-  ```javascript
-  console.log(
-    "Hello",
-    { data: value },
-    someFunction()
-  );
-  ```
+```javascript
+console.log(
+  "Hello",
+  { data: value },
+  someFunction()
+);
+```
+</details>
 
-- **Nested parentheses**
-  ```javascript
-  console.log(calculate(a, b), process(x, y));
-  ```
+<details>
+<summary><strong>Nested parentheses</strong></summary>
 
-- **Template literals**
-  ```javascript
-  console.log(`Value: ${getValue()}`);
-  ```
+```javascript
+console.log(calculate(a, b), process(x, y));
+```
+</details>
 
-- **Multiple statements on one line**
-  ```javascript
-  console.log(a); console.warn(b);
-  ```
+<details>
+<summary><strong>Template literals</strong></summary>
 
-- **Chained method calls**
-  ```javascript
-  console.log(obj.method().property);
-  ```
+```javascript
+console.log(`Value: ${getValue()}`);
+```
+</details>
+
+<details>
+<summary><strong>Multiple statements on one line</strong></summary>
+
+```javascript
+console.log(a); console.warn(b);
+```
+</details>
+
+<details>
+<summary><strong>Chained method calls</strong></summary>
+
+```javascript
+console.log(obj.method().property);
+```
+</details>
+
+---
 
 ## Development
 
@@ -183,17 +231,10 @@ The extension correctly handles:
 ### Setup
 
 ```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Watch mode
-npm run watch
-
-# Package
-vsce package
+npm install       # Install dependencies
+npm run build     # Build
+npm run watch     # Watch mode
+vsce package      # Package as .vsix
 ```
 
 ### Project Structure
@@ -211,6 +252,8 @@ log-highlighter/
 └── esbuild.js            # Build script
 ```
 
+---
+
 ## Contributing
 
 1. Fork the repository
@@ -219,21 +262,14 @@ log-highlighter/
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+---
+
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
-## Changelog
+---
 
-### 0.0.2
-
-- Bug fixes and improvements
-
-### 0.0.1
-
-- Initial release
-- Console statement highlighting (log, warn, error, info, debug)
-- Multi-line statement support
-- Framework presets (NestJS, Winston, Pino, Bunyan, Log4js)
-- Custom pattern support
-- One-click removal of highlighted statements
+<p align="center">
+  Built by <a href="https://sounakdas.in"><strong>Sounak Das</strong></a>
+</p>
