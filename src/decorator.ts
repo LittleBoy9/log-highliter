@@ -16,6 +16,13 @@ export class DecorationManager {
   private customActiveDecorations: Map<string, vscode.Range[]> = new Map();
   private currentCustomStatements: CustomStatement[] = [];
 
+  // Per-document state so highlights survive tab switches
+  private savedConsoleState: Map<string, {
+    statements: ConsoleStatement[];
+    filterMethods?: ConsoleMethod[];
+  }> = new Map();
+  private savedCustomState: Map<string, CustomStatement[]> = new Map();
+
   constructor() {
     this.decorationTypes = new Map();
     this.activeDecorations = new Map();
@@ -62,6 +69,13 @@ export class DecorationManager {
         editor.setDecorations(decorationType, []);
       }
     }
+
+    const uri = editor.document.uri.toString();
+    if (statements.length > 0) {
+      this.savedConsoleState.set(uri, { statements, filterMethods });
+    } else {
+      this.savedConsoleState.delete(uri);
+    }
   }
 
   clearAllDecorations(editor: vscode.TextEditor): void {
@@ -74,6 +88,7 @@ export class DecorationManager {
     }
     this.currentStatements = [];
     this.clearCustomDecorations(editor);
+    this.savedConsoleState.delete(editor.document.uri.toString());
   }
 
   getCurrentStatements(): ConsoleStatement[] {
@@ -135,6 +150,38 @@ export class DecorationManager {
       this.customActiveDecorations.set(color, ranges);
       editor.setDecorations(decorationType, ranges);
     }
+
+    const uri = editor.document.uri.toString();
+    if (statements.length > 0) {
+      this.savedCustomState.set(uri, statements);
+    } else {
+      this.savedCustomState.delete(uri);
+    }
+  }
+
+  restoreDecorations(editor: vscode.TextEditor): void {
+    const uri = editor.document.uri.toString();
+
+    const consoleState = this.savedConsoleState.get(uri);
+    if (consoleState) {
+      this.applyDecorations(editor, consoleState.statements, consoleState.filterMethods);
+    } else {
+      for (const method of CONSOLE_METHODS) {
+        const decorationType = this.decorationTypes.get(method);
+        if (decorationType) {
+          editor.setDecorations(decorationType, []);
+          this.activeDecorations.set(method, []);
+        }
+      }
+      this.currentStatements = [];
+    }
+
+    const customState = this.savedCustomState.get(uri);
+    if (customState) {
+      this.applyCustomDecorations(editor, customState);
+    } else {
+      this.clearCustomDecorations(editor);
+    }
   }
 
   clearCustomDecorations(editor: vscode.TextEditor): void {
@@ -143,6 +190,7 @@ export class DecorationManager {
       this.customActiveDecorations.set(color, []);
     }
     this.currentCustomStatements = [];
+    this.savedCustomState.delete(editor.document.uri.toString());
   }
 
   private hexToRgba(hex: string, alpha: number): string {

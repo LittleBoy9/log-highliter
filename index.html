@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Log Highlighter for VSCode</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0e17;
+      --bg-card: rgba(15, 23, 42, 0.6);
+      --bg-code: #0d1117;
+      --border: rgba(99, 115, 146, 0.18);
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --text-bright: #f8fafc;
+      --blue: #3b82f6;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --cyan: #06b6d4;
+      --purple: #a855f7;
+      --green: #22c55e;
+      --teal: #10b981;
+      --orange: #f59e0b;
+      --nest-red: #e0234e;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Ambient background blobs ─────────────────────── */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::before {
+      width: 600px; height: 600px;
+      background: var(--blue);
+      top: -100px; left: -100px;
+      animation: float 20s ease-in-out infinite;
+    }
+    body::after {
+      width: 500px; height: 500px;
+      background: var(--purple);
+      bottom: -80px; right: -80px;
+      animation: float 25s ease-in-out infinite reverse;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0); }
+      33% { transform: translate(60px, 40px); }
+      66% { transform: translate(-40px, 20px); }
+    }
+
+    /* ── Utilities ─────────────────────────────────────── */
+    .container { max-width: 1140px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+    .section { padding: 100px 0; }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── Scroll reveal ────────────────────────────────── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Nav ───────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 0;
+      background: rgba(10, 14, 23, 0.7);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--text-bright);
+      text-decoration: none;
+    }
+    .nav-logo {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text-bright); }
+
+    .nav-cta {
+      padding: 8px 20px;
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .nav-cta:hover { background: #2563eb; transform: translateY(-1px); }
+
+    /* ── Hero ──────────────────────────────────────────── */
+    .hero {
+      padding-top: 160px;
+      padding-bottom: 100px;
+      text-align: center;
+    }
+    .hero-badge {
+      background: rgba(59, 130, 246, 0.12);
+      color: var(--blue);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      margin-bottom: 28px;
+    }
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 68px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -1.5px;
+      color: var(--text-bright);
+      margin-bottom: 20px;
+    }
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, var(--blue), var(--cyan), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-dim);
+      max-width: 600px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 64px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.25s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), #6366f1);
+      color: #fff;
+      box-shadow: 0 4px 24px rgba(59, 130, 246, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(59, 130, 246, 0.45);
+    }
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+    .btn-secondary:hover {
+      background: rgba(30, 41, 59, 0.8);
+      border-color: rgba(99, 115, 146, 0.35);
+      transform: translateY(-2px);
+    }
+
+    /* ── Hero Code Preview ────────────────────────────── */
+    .hero-preview {
+      max-width: 720px;
+      margin: 0 auto;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 24px 80px rgba(0,0,0,0.5),
+        0 0 120px rgba(59, 130, 246, 0.06);
+    }
+    .code-window {
+      background: var(--bg-code);
+    }
+    .code-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 20px;
+      background: rgba(22, 27, 39, 0.8);
+      border-bottom: 1px solid var(--border);
+    }
+    .code-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+    .code-dot:nth-child(1) { background: #ff5f57; }
+    .code-dot:nth-child(2) { background: #ffbd2e; }
+    .code-dot:nth-child(3) { background: #28ca41; }
+    .code-filename {
+      margin-left: 12px;
+      font-size: 13px;
+      color: var(--text-dim);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+    .code-body {
+      padding: 20px 0;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.75;
+      overflow-x: auto;
+    }
+    .code-line {
+      display: flex;
+      padding: 2px 20px;
+      transition: background 0.4s ease, border-color 0.4s ease;
+      border-left: 3px solid transparent;
+    }
+    .code-line .line-number {
+      color: #475569;
+      min-width: 32px;
+      text-align: right;
+      margin-right: 20px;
+      user-select: none;
+    }
+    .code-line .line-content { flex: 1; white-space: pre; }
+
+    /* Highlight states */
+    .code-line.hl-log {
+      background: rgba(59, 130, 246, 0.13);
+      border-left-color: var(--blue);
+    }
+    .code-line.hl-warn {
+      background: rgba(234, 179, 8, 0.13);
+      border-left-color: var(--yellow);
+    }
+    .code-line.hl-error {
+      background: rgba(239, 68, 68, 0.13);
+      border-left-color: var(--red);
+    }
+    .code-line.hl-info {
+      background: rgba(6, 182, 212, 0.13);
+      border-left-color: var(--cyan);
+    }
+    .code-line.hl-debug {
+      background: rgba(168, 85, 247, 0.13);
+      border-left-color: var(--purple);
+    }
+
+    /* Syntax colors */
+    .kw { color: #c678dd; }
+    .fn { color: #61afef; }
+    .str { color: #98c379; }
+    .cmt { color: #5c6370; font-style: italic; }
+    .num { color: #d19a66; }
+    .obj { color: #e06c75; }
+    .prop { color: #e5c07b; }
+    .punc { color: #abb2bf; }
+    .method-log { color: var(--blue); }
+    .method-warn { color: var(--yellow); }
+    .method-error { color: var(--red); }
+    .method-info { color: var(--cyan); }
+    .method-debug { color: var(--purple); }
+
+    /* ── Features ─────────────────────────────────────── */
+    .features-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+    .features-header .badge {
+      background: rgba(168, 85, 247, 0.12);
+      color: var(--purple);
+      border: 1px solid rgba(168, 85, 247, 0.25);
+      margin-bottom: 20px;
+    }
+    .features-header h2 {
+      font-size: 40px;
+      font-weight: 800;
+      color: var(--text-bright);
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .features-header p {
+      color: var(--text-dim);
+      font-size: 17px;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      padding: 32px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(10px);
+      transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(99, 115, 146, 0.35);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .feature-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+    .feature-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 10px;
+    }
+    .feature-card p {
+      color: var(--text-dim);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Demo Section ─────────────────────────────────── */
+    .demo-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .demo-header .badge {
+      background: rgba(6, 182, 212, 0.12);
+      color: var(--cyan);
+      border: 1px solid rgba(6, 182, 212, 0.25);
+      margin-bottom: 20px;
+    }
+    .demo-header h2 {
+      font-size: 40px;
+      font-weight: 800;
+      color: var(--text-bright);
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .demo-header p {
+      color: var(--text-dim);
+      font-size: 17px;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    .demo-controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .demo-btn {
+      padding: 10px 20px;
+      border-radius: 99px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-dim);
+      transition: all 0.25s;
+      backdrop-filter: blur(6px);
+    }
+    .demo-btn:hover, .demo-btn.active {
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .demo-btn[data-type="all"] { --accent: var(--text-bright); }
+    .demo-btn[data-type="all"]:hover, .demo-btn[data-type="all"].active {
+      background: rgba(248, 250, 252, 0.15);
+      border-color: rgba(248, 250, 252, 0.3);
+    }
+    .demo-btn[data-type="log"] { --accent: var(--blue); }
+    .demo-btn[data-type="log"]:hover, .demo-btn[data-type="log"].active {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+    .demo-btn[data-type="warn"] { --accent: var(--yellow); }
+    .demo-btn[data-type="warn"]:hover, .demo-btn[data-type="warn"].active {
+      background: rgba(234, 179, 8, 0.2);
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+    .demo-btn[data-type="error"] { --accent: var(--red); }
+    .demo-btn[data-type="error"]:hover, .demo-btn[data-type="error"].active {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .demo-btn[data-type="info"] { --accent: var(--cyan); }
+    .demo-btn[data-type="info"]:hover, .demo-btn[data-type="info"].active {
+      background: rgba(6, 182, 212, 0.2);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+    .demo-btn[data-type="debug"] { --accent: var(--purple); }
+    .demo-btn[data-type="debug"]:hover, .demo-btn[data-type="debug"].active {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: var(--purple);
+      color: var(--purple);
+    }
+    .demo-btn[data-type="clear"] {
+      background: transparent;
+      border-color: rgba(239, 68, 68, 0.3);
+      color: var(--red);
+    }
+    .demo-btn[data-type="clear"]:hover {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: var(--red);
+    }
+
+    .demo-preview {
+      max-width: 780px;
+      margin: 0 auto;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+    }
+
+    /* ── Frameworks ────────────────────────────────────── */
+    .frameworks-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+    .frameworks-header .badge {
+      background: rgba(34, 197, 94, 0.12);
+      color: var(--green);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      margin-bottom: 20px;
+    }
+    .frameworks-header h2 {
+      font-size: 40px;
+      font-weight: 800;
+      color: var(--text-bright);
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .frameworks-header p {
+      color: var(--text-dim);
+      font-size: 17px;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    .frameworks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .framework-card {
+      padding: 28px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .framework-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--fw-color);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .framework-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--fw-color);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+    }
+    .framework-card:hover::before { opacity: 1; }
+
+    .fw-icon {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .framework-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-bright);
+      margin-bottom: 6px;
+    }
+    .framework-card .pattern-count {
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .framework-card .patterns {
+      margin-top: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* ── Config Section ───────────────────────────────── */
+    .config-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .config-header .badge {
+      background: rgba(245, 158, 11, 0.12);
+      color: var(--orange);
+      border: 1px solid rgba(245, 158, 11, 0.25);
+      margin-bottom: 20px;
+    }
+    .config-header h2 {
+      font-size: 40px;
+      font-weight: 800;
+      color: var(--text-bright);
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .config-header p {
+      color: var(--text-dim);
+      font-size: 17px;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .config-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+    .config-card-title {
+      padding: 16px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+      border-bottom: 1px solid var(--border);
+      background: rgba(22, 27, 39, 0.5);
+    }
+    .config-card pre {
+      padding: 20px 24px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      overflow-x: auto;
+    }
+
+    /* ── Languages ─────────────────────────────────────── */
+    .languages {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 48px;
+    }
+    .lang-tag {
+      padding: 8px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      backdrop-filter: blur(6px);
+      transition: all 0.2s;
+    }
+    .lang-tag:hover {
+      color: var(--text-bright);
+      border-color: rgba(99, 115, 146, 0.4);
+    }
+
+    /* ── CTA ───────────────────────────────────────────── */
+    .cta {
+      text-align: center;
+      padding: 120px 0;
+    }
+    .cta-box {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 64px 48px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(168, 85, 247, 0.08));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-box::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--purple), var(--cyan));
+    }
+    .cta h2 {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--text-bright);
+      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+    }
+    .cta p {
+      color: var(--text-dim);
+      font-size: 17px;
+      margin-bottom: 36px;
+    }
+    .install-cmd {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 24px;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 24px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .install-cmd:hover {
+      border-color: var(--blue);
+    }
+    .install-cmd .copy-icon {
+      color: var(--text-dim);
+      transition: color 0.2s;
+    }
+    .install-cmd:hover .copy-icon { color: var(--blue); }
+    .install-cmd .copied-text {
+      display: none;
+      color: var(--green);
+      font-size: 12px;
+      font-family: -apple-system, sans-serif;
+    }
+    .install-cmd.copied .copy-icon { display: none; }
+    .install-cmd.copied .copied-text { display: inline; }
+
+    .cta-or {
+      display: block;
+      color: var(--text-dim);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    /* ── Footer ────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 14px;
+    }
+    footer a {
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    footer a:hover { color: var(--text-bright); }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Stats bar ─────────────────────────────────────── */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 48px;
+      flex-wrap: wrap;
+      padding: 48px 0;
+      margin-top: 64px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--text-bright);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-label {
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+
+    /* ── Responsive ────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hero h1 { font-size: 36px; }
+      .features-grid { grid-template-columns: 1fr; }
+      .config-grid { grid-template-columns: 1fr; }
+      .frameworks-grid { grid-template-columns: repeat(2, 1fr); }
+      .stats { gap: 32px; }
+      .code-body { font-size: 12px; }
+      .hero-preview { margin: 0 -12px; border-radius: 12px; }
+      .demo-preview { margin: 0 -12px; border-radius: 12px; }
+      .cta-box { padding: 40px 24px; }
+    }
+    @media (max-width: 480px) {
+      .frameworks-grid { grid-template-columns: 1fr; }
+      .hero-buttons { flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Nav ────────────────────────────────────────── -->
+  <nav>
+    <div class="container">
+      <a href="#" class="nav-brand">
+        <div class="nav-logo">&#9646;</div>
+        Log Highlighter
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#demo">Demo</a></li>
+        <li><a href="#frameworks">Frameworks</a></li>
+        <li><a href="#config">Config</a></li>
+      </ul>
+      <a href="#install" class="nav-cta">Install Now</a>
+    </div>
+  </nav>
+
+  <!-- ── Hero ───────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container">
+      <span class="badge hero-badge">VS Code Extension</span>
+      <h1>
+        Find, Highlight &<br>
+        <span class="gradient-text">Clean Your Logs</span>
+      </h1>
+      <p>
+        Color-coded highlighting for console.log, console.warn, console.error and more.
+        One-click removal. Support for NestJS, Winston, Pino and custom loggers.
+      </p>
+      <div class="hero-buttons">
+        <a href="#install" class="btn btn-primary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Install Extension
+        </a>
+        <a href="https://github.com/sounakdas/log-highlighter" class="btn btn-secondary" target="_blank">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <div class="hero-preview">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dot"></div>
+            <div class="code-dot"></div>
+            <div class="code-dot"></div>
+            <span class="code-filename">app.ts</span>
+          </div>
+          <div class="code-body" id="hero-code">
+            <div class="code-line"><span class="line-number">1</span><span class="line-content"><span class="kw">import</span> { fetchUsers } <span class="kw">from</span> <span class="str">'./api'</span><span class="punc">;</span></span></div>
+            <div class="code-line"><span class="line-number">2</span><span class="line-content"></span></div>
+            <div class="code-line"><span class="line-number">3</span><span class="line-content"><span class="kw">async function</span> <span class="fn">loadDashboard</span><span class="punc">() {</span></span></div>
+            <div class="code-line hl-log" data-hl="log"><span class="line-number">4</span><span class="line-content">  <span class="method-log">console.log</span><span class="punc">(</span><span class="str">'Loading dashboard...'</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">5</span><span class="line-content">  <span class="kw">const</span> users = <span class="kw">await</span> <span class="fn">fetchUsers</span><span class="punc">();</span></span></div>
+            <div class="code-line hl-info" data-hl="info"><span class="line-number">6</span><span class="line-content">  <span class="method-info">console.info</span><span class="punc">(</span><span class="str">`Found </span><span class="punc">${</span>users<span class="punc">.</span><span class="prop">length</span><span class="punc">}</span><span class="str"> users`</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">7</span><span class="line-content"></span></div>
+            <div class="code-line hl-warn" data-hl="warn"><span class="line-number">8</span><span class="line-content">  <span class="method-warn">console.warn</span><span class="punc">(</span><span class="str">'Cache is stale, refreshing...'</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">9</span><span class="line-content">  <span class="kw">try</span> <span class="punc">{</span></span></div>
+            <div class="code-line"><span class="line-number">10</span><span class="line-content">    <span class="kw">await</span> <span class="fn">refreshCache</span><span class="punc">(</span>users<span class="punc">);</span></span></div>
+            <div class="code-line hl-debug" data-hl="debug"><span class="line-number">11</span><span class="line-content">    <span class="method-debug">console.debug</span><span class="punc">(</span><span class="str">'Cache refreshed'</span><span class="punc">,</span> { <span class="prop">count</span><span class="punc">:</span> users<span class="punc">.</span><span class="prop">length</span> }<span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">12</span><span class="line-content">  <span class="punc">}</span> <span class="kw">catch</span> <span class="punc">(</span><span class="obj">err</span><span class="punc">) {</span></span></div>
+            <div class="code-line hl-error" data-hl="error"><span class="line-number">13</span><span class="line-content">    <span class="method-error">console.error</span><span class="punc">(</span><span class="str">'Failed to refresh'</span><span class="punc">,</span> <span class="obj">err</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">14</span><span class="line-content">  <span class="punc">}</span></span></div>
+            <div class="code-line"><span class="line-number">15</span><span class="line-content"><span class="punc">}</span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value">5</div>
+          <div class="stat-label">Console Methods</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">5</div>
+          <div class="stat-label">Framework Presets</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">6</div>
+          <div class="stat-label">Languages Supported</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">&infin;</div>
+          <div class="stat-label">Custom Patterns</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features ───────────────────────────────────── -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="features-header reveal">
+        <span class="badge">Features</span>
+        <h2>Everything You Need</h2>
+        <p>Built to make debugging faster and codebase cleanup effortless.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card reveal">
+          <div class="feature-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--blue);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <h3>Color-Coded Highlights</h3>
+          <p>Each console method gets its own distinct color. Instantly see the difference between logs, warnings, errors, info, and debug statements.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--red);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </div>
+          <h3>One-Click Removal</h3>
+          <p>Remove all highlighted log statements from your code with a single click. Built-in confirmation dialog keeps you safe from accidents.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon" style="background: rgba(34, 197, 94, 0.15); color: var(--green);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <h3>Framework Presets</h3>
+          <p>Built-in support for NestJS, Winston, Pino, Bunyan, and Log4js. Enable presets with a single toggle and highlight framework-specific patterns.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--purple);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          </div>
+          <h3>Smart Parsing</h3>
+          <p>Handles multi-line statements, nested parentheses, template literals, and comments. Never miss a complex console call.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--orange);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          <h3>Custom Patterns</h3>
+          <p>Define your own logging patterns with custom colors via settings.json. Match any function call — myLogger.log, debugPrint, and more.</p>
+        </div>
+
+        <div class="feature-card reveal">
+          <div class="feature-icon" style="background: rgba(6, 182, 212, 0.15); color: var(--cyan);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          </div>
+          <h3>Multi-Language</h3>
+          <p>Works with JavaScript, TypeScript, React (JSX/TSX), Vue, and Svelte files. Automatically activates when you open a supported file.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Demo ───────────────────────────────────────── -->
+  <section class="section" id="demo">
+    <div class="container">
+      <div class="demo-header reveal">
+        <span class="badge">Interactive Demo</span>
+        <h2>Try It Yourself</h2>
+        <p>Click the buttons below to highlight different console methods.</p>
+      </div>
+
+      <div class="demo-controls reveal">
+        <button class="demo-btn" data-type="all">Highlight All</button>
+        <button class="demo-btn" data-type="log">console.log</button>
+        <button class="demo-btn" data-type="warn">console.warn</button>
+        <button class="demo-btn" data-type="error">console.error</button>
+        <button class="demo-btn" data-type="info">console.info</button>
+        <button class="demo-btn" data-type="debug">console.debug</button>
+        <button class="demo-btn" data-type="clear">Clear All</button>
+      </div>
+
+      <div class="demo-preview reveal">
+        <div class="code-window">
+          <div class="code-titlebar">
+            <div class="code-dot"></div>
+            <div class="code-dot"></div>
+            <div class="code-dot"></div>
+            <span class="code-filename">server.ts</span>
+          </div>
+          <div class="code-body" id="demo-code">
+            <div class="code-line"><span class="line-number">1</span><span class="line-content"><span class="kw">import</span> express <span class="kw">from</span> <span class="str">'express'</span><span class="punc">;</span></span></div>
+            <div class="code-line"><span class="line-number">2</span><span class="line-content"></span></div>
+            <div class="code-line"><span class="line-number">3</span><span class="line-content"><span class="kw">const</span> app = <span class="fn">express</span><span class="punc">();</span></span></div>
+            <div class="code-line"><span class="line-number">4</span><span class="line-content"></span></div>
+            <div class="code-line" data-hl="log"><span class="line-number">5</span><span class="line-content"><span class="method-log">console.log</span><span class="punc">(</span><span class="str">'Server starting...'</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">6</span><span class="line-content"></span></div>
+            <div class="code-line"><span class="line-number">7</span><span class="line-content">app<span class="punc">.</span><span class="fn">get</span><span class="punc">(</span><span class="str">'/api/users'</span><span class="punc">,</span> <span class="kw">async</span> <span class="punc">(</span>req<span class="punc">,</span> res<span class="punc">) => {</span></span></div>
+            <div class="code-line" data-hl="info"><span class="line-number">8</span><span class="line-content">  <span class="method-info">console.info</span><span class="punc">(</span><span class="str">'GET /api/users'</span><span class="punc">,</span> req<span class="punc">.</span><span class="prop">query</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">9</span><span class="line-content">  <span class="kw">const</span> users = <span class="kw">await</span> <span class="fn">getUsers</span><span class="punc">();</span></span></div>
+            <div class="code-line" data-hl="debug"><span class="line-number">10</span><span class="line-content">  <span class="method-debug">console.debug</span><span class="punc">(</span><span class="str">'Query result:'</span><span class="punc">,</span> users<span class="punc">.</span><span class="prop">length</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">11</span><span class="line-content"></span></div>
+            <div class="code-line"><span class="line-number">12</span><span class="line-content">  <span class="kw">if</span> <span class="punc">(</span>users<span class="punc">.</span><span class="prop">length</span> === <span class="num">0</span><span class="punc">) {</span></span></div>
+            <div class="code-line" data-hl="warn"><span class="line-number">13</span><span class="line-content">    <span class="method-warn">console.warn</span><span class="punc">(</span><span class="str">'No users found in database'</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">14</span><span class="line-content">    <span class="kw">return</span> res<span class="punc">.</span><span class="fn">status</span><span class="punc">(</span><span class="num">404</span><span class="punc">).</span><span class="fn">json</span><span class="punc">({</span> <span class="prop">error</span><span class="punc">:</span> <span class="str">'Not found'</span> <span class="punc">});</span></span></div>
+            <div class="code-line"><span class="line-number">15</span><span class="line-content">  <span class="punc">}</span></span></div>
+            <div class="code-line"><span class="line-number">16</span><span class="line-content"></span></div>
+            <div class="code-line" data-hl="log"><span class="line-number">17</span><span class="line-content">  <span class="method-log">console.log</span><span class="punc">(</span><span class="str">`Returning </span><span class="punc">${</span>users<span class="punc">.</span><span class="prop">length</span><span class="punc">}</span><span class="str"> users`</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">18</span><span class="line-content">  res<span class="punc">.</span><span class="fn">json</span><span class="punc">(</span>users<span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">19</span><span class="line-content"><span class="punc">});</span></span></div>
+            <div class="code-line"><span class="line-number">20</span><span class="line-content"></span></div>
+            <div class="code-line"><span class="line-number">21</span><span class="line-content">app<span class="punc">.</span><span class="fn">use</span><span class="punc">((</span><span class="obj">err</span><span class="punc">,</span> req<span class="punc">,</span> res<span class="punc">,</span> next<span class="punc">) => {</span></span></div>
+            <div class="code-line" data-hl="error"><span class="line-number">22</span><span class="line-content">  <span class="method-error">console.error</span><span class="punc">(</span><span class="str">'Unhandled error:'</span><span class="punc">,</span> <span class="obj">err</span><span class="punc">.</span><span class="prop">message</span><span class="punc">);</span></span></div>
+            <div class="code-line"><span class="line-number">23</span><span class="line-content">  res<span class="punc">.</span><span class="fn">status</span><span class="punc">(</span><span class="num">500</span><span class="punc">).</span><span class="fn">json</span><span class="punc">({</span> <span class="prop">error</span><span class="punc">:</span> <span class="str">'Internal server error'</span> <span class="punc">});</span></span></div>
+            <div class="code-line"><span class="line-number">24</span><span class="line-content"><span class="punc">});</span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="languages reveal">
+        <div class="lang-tag">JavaScript</div>
+        <div class="lang-tag">TypeScript</div>
+        <div class="lang-tag">React JSX</div>
+        <div class="lang-tag">React TSX</div>
+        <div class="lang-tag">Vue</div>
+        <div class="lang-tag">Svelte</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Frameworks ─────────────────────────────────── -->
+  <section class="section" id="frameworks">
+    <div class="container">
+      <div class="frameworks-header reveal">
+        <span class="badge">Framework Presets</span>
+        <h2>Works With Your Stack</h2>
+        <p>Built-in support for popular logging frameworks. Enable with a single toggle.</p>
+      </div>
+
+      <div class="frameworks-grid reveal">
+        <div class="framework-card" style="--fw-color: #e0234e;">
+          <div class="fw-icon" style="background: linear-gradient(135deg, #e0234e, #a1173a);">N</div>
+          <h3>NestJS</h3>
+          <span class="pattern-count">10 patterns</span>
+          <div class="patterns">this.logger.log<br>Logger.error<br>this.logger.verbose</div>
+        </div>
+
+        <div class="framework-card" style="--fw-color: #22c55e;">
+          <div class="fw-icon" style="background: linear-gradient(135deg, #22c55e, #16a34a);">W</div>
+          <h3>Winston</h3>
+          <span class="pattern-count">6 patterns</span>
+          <div class="patterns">logger.info<br>logger.error<br>logger.silly</div>
+        </div>
+
+        <div class="framework-card" style="--fw-color: #10b981;">
+          <div class="fw-icon" style="background: linear-gradient(135deg, #10b981, #059669);">P</div>
+          <h3>Pino</h3>
+          <span class="pattern-count">6 patterns</span>
+          <div class="patterns">logger.info<br>logger.trace<br>logger.fatal</div>
+        </div>
+
+        <div class="framework-card" style="--fw-color: #f59e0b;">
+          <div class="fw-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">B</div>
+          <h3>Bunyan</h3>
+          <span class="pattern-count">6 patterns</span>
+          <div class="patterns">log.info<br>log.error<br>log.fatal</div>
+        </div>
+
+        <div class="framework-card" style="--fw-color: #8b5cf6;">
+          <div class="fw-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">L</div>
+          <h3>Log4js</h3>
+          <span class="pattern-count">6 patterns</span>
+          <div class="patterns">logger.info<br>logger.debug<br>logger.fatal</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Config ─────────────────────────────────────── -->
+  <section class="section" id="config">
+    <div class="container">
+      <div class="config-header reveal">
+        <span class="badge">Configuration</span>
+        <h2>Fully Customizable</h2>
+        <p>Configure presets and add custom patterns directly in your settings.json.</p>
+      </div>
+
+      <div class="config-grid reveal">
+        <div class="config-card">
+          <div class="config-card-title">Enable Framework Presets</div>
+          <pre><span class="punc">{</span>
+  <span class="str">"logHighlighter.enabledPresets"</span><span class="punc">:</span> <span class="punc">[</span>
+    <span class="str">"nestjs"</span><span class="punc">,</span>
+    <span class="str">"winston"</span><span class="punc">,</span>
+    <span class="str">"pino"</span>
+  <span class="punc">]</span>
+<span class="punc">}</span></pre>
+        </div>
+
+        <div class="config-card">
+          <div class="config-card-title">Add Custom Patterns</div>
+          <pre><span class="punc">{</span>
+  <span class="str">"logHighlighter.customPatterns"</span><span class="punc">:</span> <span class="punc">[</span>
+    <span class="punc">{</span>
+      <span class="str">"name"</span><span class="punc">:</span> <span class="str">"My Logger"</span><span class="punc">,</span>
+      <span class="str">"pattern"</span><span class="punc">:</span> <span class="str">"myLogger.log"</span><span class="punc">,</span>
+      <span class="str">"color"</span><span class="punc">:</span> <span class="str">"#ff6b6b"</span>
+    <span class="punc">}</span>
+  <span class="punc">]</span>
+<span class="punc">}</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ────────────────────────────────────────── -->
+  <section class="cta" id="install">
+    <div class="container">
+      <div class="cta-box reveal">
+        <h2>Ready to Clean Up Your Logs?</h2>
+        <p>Install Log Highlighter and start highlighting in seconds.</p>
+        <div class="install-cmd" id="copy-cmd" onclick="copyInstall()">
+          <span>code --install-extension littleboy.log-highlighter-vscode</span>
+          <span class="copy-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </span>
+          <span class="copied-text">Copied!</span>
+        </div>
+        <span class="cta-or">or search "Log Highlighter" in VS Code Extensions</span>
+        <a href="https://github.com/sounakdas/log-highlighter" class="btn btn-primary" target="_blank">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ─────────────────────────────────────── -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/sounakdas/log-highlighter">GitHub</a>
+        <a href="https://github.com/sounakdas/log-highlighter/issues">Report Issue</a>
+        <a href="https://github.com/sounakdas/log-highlighter/blob/main/LICENSE">MIT License</a>
+      </div>
+      <p>Built by <strong>Sounak Das</strong></p>
+    </div>
+  </footer>
+
+  <!-- ── Scripts ────────────────────────────────────── -->
+  <script>
+    // ── Scroll reveal ──
+    const revealEls = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => entry.target.classList.add('visible'), i * 80);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    revealEls.forEach(el => observer.observe(el));
+
+    // ── Hero auto-animate ──
+    const heroLines = document.querySelectorAll('#hero-code .code-line[data-hl]');
+    let heroIndex = 0;
+    function animateHero() {
+      heroLines.forEach(l => {
+        const type = l.dataset.hl;
+        l.classList.remove('hl-log', 'hl-warn', 'hl-error', 'hl-info', 'hl-debug');
+      });
+
+      // Show lines one by one with a cascading effect
+      heroLines.forEach((line, i) => {
+        setTimeout(() => {
+          line.classList.add('hl-' + line.dataset.hl);
+        }, i * 200);
+      });
+
+      // After all are shown, wait, then restart
+      setTimeout(animateHero, heroLines.length * 200 + 4000);
+    }
+
+    // Start hero animation after a short delay
+    setTimeout(animateHero, 1000);
+
+    // ── Demo interactivity ──
+    const demoBtns = document.querySelectorAll('.demo-btn');
+    const demoLines = document.querySelectorAll('#demo-code .code-line[data-hl]');
+
+    demoBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.type;
+
+        // Update active button
+        demoBtns.forEach(b => b.classList.remove('active'));
+        if (type !== 'clear') btn.classList.add('active');
+
+        // Apply highlights
+        demoLines.forEach(line => {
+          line.classList.remove('hl-log', 'hl-warn', 'hl-error', 'hl-info', 'hl-debug');
+
+          if (type === 'clear') return;
+
+          const lineType = line.dataset.hl;
+          if (type === 'all' || type === lineType) {
+            line.classList.add('hl-' + lineType);
+          }
+        });
+      });
+    });
+
+    // ── Copy install command ──
+    function copyInstall() {
+      const cmd = 'code --install-extension littleboy.log-highlighter-vscode';
+      navigator.clipboard.writeText(cmd);
+      const el = document.getElementById('copy-cmd');
+      el.classList.add('copied');
+      setTimeout(() => el.classList.remove('copied'), 2000);
+    }
+
+    // ── Smooth nav shrink ──
+    window.addEventListener('scroll', () => {
+      const nav = document.querySelector('nav');
+      nav.style.padding = window.scrollY > 50 ? '10px 0' : '16px 0';
+    });
+  </script>
+
+</body>
+</html>

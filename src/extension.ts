@@ -13,7 +13,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
       if (editor && decorationManager) {
-        decorationManager.clearAllDecorations(editor);
+        decorationManager.restoreDecorations(editor);
       }
     })
   );

@@ -19,12 +19,12 @@ A VS Code extension to highlight, manage, and remove console statements and cust
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/log-highlighter.git
+git clone https://github.com/LittleBoy9/log-highliter.git
 cd log-highlighter
 npm install
 npm run build
 vsce package
-code --install-extension log-highlighter-0.0.1.vsix
+code --install-extension log-highlighter-0.0.2.vsix
 ```
 
 ## Usage
@@ -224,6 +224,10 @@ log-highlighter/
 MIT License - see [LICENSE](LICENSE) for details.
 
 ## Changelog
+
+### 0.0.2
+
+- Bug fixes and improvements
 
 ### 0.0.1
 

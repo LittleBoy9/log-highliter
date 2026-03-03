@@ -329,22 +329,32 @@ function getCustomPatterns(): CustomPattern[] {
 
 function getAllCustomPatterns(): CustomPattern[] {
   const patterns: CustomPattern[] = [];
+  const seenPatterns = new Set<string>();
 
   const enabledPresets = getEnabledPresets();
   for (const presetName of enabledPresets) {
     const preset = FRAMEWORK_PRESETS[presetName];
     if (preset) {
       for (const pattern of preset.patterns) {
-        patterns.push({
-          name: `${preset.name}: ${pattern}`,
-          pattern,
-          color: preset.color,
-        });
+        if (!seenPatterns.has(pattern)) {
+          seenPatterns.add(pattern);
+          patterns.push({
+            name: `${preset.name}: ${pattern}`,
+            pattern,
+            color: preset.color,
+          });
+        }
       }
     }
   }
 
-  patterns.push(...getCustomPatterns());
+  for (const customPattern of getCustomPatterns()) {
+    if (!seenPatterns.has(customPattern.pattern)) {
+      seenPatterns.add(customPattern.pattern);
+      patterns.push(customPattern);
+    }
+  }
+
   return patterns;
 }
 
@@ -516,16 +526,9 @@ async function removeCustomHighlighted(decorationManager: DecorationManager): Pr
     return;
   }
 
-  const ranges = statements.map((s) => {
-    const startLine = s.range.start.line;
-    const endLine = s.range.end.line;
-    return new vscode.Range(
-      new vscode.Position(startLine, 0),
-      editor.document.lineAt(endLine).range.end
-    );
-  });
+  const fullLineRanges = getFullLineRanges(editor.document, statements);
 
-  const sortedRanges = [...ranges].sort((a, b) => b.start.compareTo(a.start));
+  const sortedRanges = [...fullLineRanges].sort((a, b) => b.start.compareTo(a.start));
 
   await editor.edit((editBuilder) => {
     for (const range of sortedRanges) {

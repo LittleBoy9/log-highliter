@@ -55,15 +55,13 @@ function findMatchingCloseParen(text: string, openParenOffset: number): number {
 
   while (i < text.length && depth > 0) {
     const char = text[i];
-    const prevChar = i > 0 ? text[i - 1] : '';
-
-    if (prevChar === '\\' && inString) {
-      i++;
-      continue;
-    }
 
     if (inTemplateLiteral) {
-      if (char === '`' && prevChar !== '\\') {
+      if (char === '\\') {
+        i += 2;
+        continue;
+      }
+      if (char === '`') {
         inTemplateLiteral = false;
       } else if (char === '$' && text[i + 1] === '{') {
         templateBraceDepth++;
@@ -77,6 +75,10 @@ function findMatchingCloseParen(text: string, openParenOffset: number): number {
     }
 
     if (inString) {
+      if (char === '\\') {
+        i += 2;
+        continue;
+      }
       if (char === inString) {
         inString = null;
       }
@@ -131,7 +133,7 @@ function findMatchingCloseParen(text: string, openParenOffset: number): number {
 
 export function getFullLineRanges(
   document: vscode.TextDocument,
-  statements: ConsoleStatement[]
+  statements: { range: vscode.Range }[]
 ): vscode.Range[] {
   const ranges: vscode.Range[] = [];
 
